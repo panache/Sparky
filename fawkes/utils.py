@@ -37,7 +37,7 @@ from keras.layers import Dense, Activation
 from keras.models import Model
 from keras.preprocessing import image
 
-from fawkes.align_face import align
+from align_face import align
 from six.moves.urllib.request import urlopen
 
 if sys.version_info[0] == 2:
@@ -232,6 +232,7 @@ class Faces(object):
 
             callback_id = self.callback_idx[i]
             bb = self.cropped_index[i]
+            #print("beep boop")
             self.cloaked_faces[callback_id][bb[0]:bb[2], bb[1]:bb[3], :] += reshape_cloak
 
         for i in range(0, len(self.cloaked_faces)):
