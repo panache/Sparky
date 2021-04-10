@@ -30,7 +30,7 @@ Options:
   compute power.
 * `--format`      : format of the output image (png or jpg).
 * `--visual-debug`       : export additional files to visualize the face cloaking process
-
+* `--margin`       : margin in floating-point percent to expand face area. negative number for a smaller bounding box. (default `0.1`)
 ### Example
 
 `fawkes -d ./imgs --mode low`

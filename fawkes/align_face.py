@@ -11,7 +11,8 @@ def to_rgb(img):
 def aligner():
     return MTCNN()
 
-def align(orig_img, aligner, detect_multiple_faces=True):
+# Margin is % larger to make box around face
+def align(orig_img, aligner, margin=0.1, detect_multiple_faces=True):
     """ run MTCNN face detector """
 
     if orig_img.ndim < 2:
@@ -51,11 +52,18 @@ def align(orig_img, aligner, detect_multiple_faces=True):
 
             bb = np.zeros(4, dtype=np.int32)
 
-            bb[0] = x
-            bb[1] = y
-            bb[2] = x + width
-            bb[3] = y + height
+            margin_x = width * margin // 2
+            margin_y = height * margin // 2
 
+            bb[0] = max(x - margin_x, 0)
+            bb[1] = max(y - margin_y, 0)
+            bb[2] = min(x + width + margin_x, img_size[1])
+            bb[3] = min(y + height + margin_y, img_size[0])
+            
+            # Don't let them overlap!
+            bb[2] = max(bb[0], bb[2])
+            bb[3] = max(bb[1], bb[3])
+            
             cropped = orig_img[bb[1]:bb[3], bb[0]:bb[2],:]
             cropped_arr.append(cropped)
             bounding_boxes_arr.append([bb[0], bb[1], bb[2], bb[3]])

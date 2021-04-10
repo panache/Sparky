@@ -84,7 +84,7 @@ class Fawkes(object):
 
     def run_protection(self, image_paths, th=0.04, sd=1e9, lr=10, max_step=500, batch_size=1, format='png',
                        separate_target=True, debug=False, no_align=False, exp="", maximize=True,
-                       save_last_on_failed=True, visual_debug=False):
+                       save_last_on_failed=True, visual_debug=False, margin=None):
 
         current_param = "-".join([str(x) for x in [self.th, sd, self.lr, self.max_step, batch_size, format,
                                                    separate_target, debug]])
@@ -95,7 +95,7 @@ class Fawkes(object):
             print("No images in the directory")
             return 3
 
-        faces = Faces(image_paths, loaded_images, self.aligner, verbose=1, no_align=no_align)
+        faces = Faces(image_paths, loaded_images, self.aligner, verbose=1, no_align=no_align, margin=margin)
         original_images = faces.cropped_faces
 
         if len(original_images) == 0:
@@ -186,6 +186,9 @@ def main(*argv):
     parser.add_argument('--format', type=str,
                         help="format of the output image",
                         default="jpeg")
+    parser.add_argument('--margin', type=float,
+                        help="margin in floating-point percentage to increase/decrease face bounding box size",
+                        default=0.1)
 
     args = parser.parse_args(argv[1:])
 
@@ -202,7 +205,7 @@ def main(*argv):
                              max_step=args.max_step,
                              batch_size=args.batch_size, format=args.format,
                              separate_target=args.separate_target, debug=args.debug, no_align=args.no_align,
-                             visual_debug=args.visual_debug)
+                             visual_debug=args.visual_debug, margin=args.margin)
 
 
 if __name__ == '__main__':

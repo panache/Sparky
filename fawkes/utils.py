@@ -166,10 +166,10 @@ class FaceImage(object):
         self.cloaked = None
         self.faces = None
 
-    def find_faces(self, aligner):
+    def find_faces(self, aligner, margin):
         self.faces = []
         # returns cropped version and returns bounding box
-        align_img = align(self.image, aligner)
+        align_img = align(self.image, aligner, margin)
         if align_img is None:
             print("Find 0 face(s) in {}".format(p.split("/")[-1]))
         else:
@@ -241,7 +241,7 @@ class FaceImage(object):
             
 class Faces(object):
     def __init__(self, image_paths, loaded_images, aligner, verbose=1, eval_local=False, preprocessing=True,
-                 no_align=False):
+                 no_align=False, margin=None):
         self.image_paths = image_paths
         self.verbose = verbose
         self.no_align = no_align
@@ -255,7 +255,7 @@ class Faces(object):
             self.face_images.append(face_image)
 
             if not no_align:
-                face_image.find_faces(aligner=self.aligner)
+                face_image.find_faces(aligner=self.aligner, margin=margin)
 
             face_image.build_cropped_faces()
 
