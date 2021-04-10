@@ -79,7 +79,7 @@ class Fawkes(object):
             extractors = ["extractor_0", "extractor_2"]
 
         else:
-            raise Exception("mode must be one of 'min', 'low', 'mid', 'high'")
+            raise Exception("mode must be one of 'low', 'mid', 'high'")
         return th, max_step, lr, extractors
 
     def run_protection(self, image_paths, th=0.04, sd=1e9, lr=10, max_step=500, batch_size=1, format='png',
@@ -160,7 +160,7 @@ def main(*argv):
     parser.add_argument('--gpu', '-g', type=str,
                         help='the GPU id when using GPU for optimization', default='0')
     parser.add_argument('--mode', '-m', type=str,
-                        help='cloak generation mode, select from min, low, mid, high. The higher the mode is, '
+                        help='cloak generation mode, select from low, mid, high. The higher the mode is, '
                              'the more perturbation added and stronger protection',
                         default='low')
     parser.add_argument('--feature-extractor', type=str,
