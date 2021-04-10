@@ -84,7 +84,7 @@ class Fawkes(object):
 
     def run_protection(self, image_paths, th=0.04, sd=1e9, lr=10, max_step=500, batch_size=1, format='png',
                        separate_target=True, debug=False, no_align=False, exp="", maximize=True,
-                       save_last_on_failed=True):
+                       save_last_on_failed=True, visual_debug=False):
 
         current_param = "-".join([str(x) for x in [self.th, sd, self.lr, self.max_step, batch_size, format,
                                                    separate_target, debug]])
@@ -132,13 +132,14 @@ class Fawkes(object):
             reverse_process_cloaked(protected_images, preprocess=PREPROCESS),
             reverse_process_cloaked(original_images, preprocess=PREPROCESS))
 
-        for i in range(len(final_images)):
-            if i in images_without_face:
-                continue
-            p_img = final_images[i]
-            path = image_paths[i]
-            file_name = "{}_cloaked.{}".format(".".join(path.split(".")[:-1]), format)
-            dump_image(p_img, file_name, format=format)
+        faces.save_images(format=format, cloaked=True, visual_debug=visual_debug)
+        # for i in range(len(final_images)):
+        #     if i in images_without_face:
+        #         continue
+        #     p_img = final_images[i]
+        #     path = image_paths[i]
+        #     file_name = "{}_cloaked.{}".format(".".join(path.split(".")[:-1]), format)
+        #     dump_image(p_img, file_name, format=format)
 
         print("Done!")
         return 1
@@ -180,9 +181,11 @@ def main(*argv):
                         action='store_true')
     parser.add_argument('--debug', help="turn on debug and copy/paste the stdout when reporting an issue on github",
                         action='store_true')
+    parser.add_argument('--visual-debug', help="turn on visual debug mode",
+                        action='store_true')
     parser.add_argument('--format', type=str,
                         help="format of the output image",
-                        default="png")
+                        default="jpeg")
 
     args = parser.parse_args(argv[1:])
 
@@ -191,14 +194,15 @@ def main(*argv):
         args.format = 'jpeg'
 
     image_paths = glob.glob(os.path.join(args.directory, "*"))
-    image_paths = [path for path in image_paths if "_cloaked" not in path.split("/")[-1]]
+    image_paths = [path for path in image_paths if "_cloaked" not in path.split("/")[-1] and "_debug" not in path.split("/")[-1]]
 
     protector = Fawkes(args.feature_extractor, args.gpu, args.batch_size, mode=args.mode)
 
     protector.run_protection(image_paths, th=args.th, sd=args.sd, lr=args.lr,
                              max_step=args.max_step,
                              batch_size=args.batch_size, format=args.format,
-                             separate_target=args.separate_target, debug=args.debug, no_align=args.no_align)
+                             separate_target=args.separate_target, debug=args.debug, no_align=args.no_align,
+                             visual_debug=args.visual_debug)
 
 
 if __name__ == '__main__':

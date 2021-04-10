@@ -32,7 +32,7 @@ sys.stderr = stderr
 import keras.backend as K
 import numpy as np
 import tensorflow as tf
-from PIL import Image, ExifTags
+from PIL import Image, ExifTags, ImageDraw
 from keras.layers import Dense, Activation
 from keras.models import Model
 from keras.preprocessing import image
@@ -125,7 +125,120 @@ def filter_image_paths(image_paths):
     print("Identify {} images in the directory".format(len(new_image_paths)))
     return new_image_paths, new_images
 
+class Face(object):
 
+    def __init__(self, image, bbox):
+        self.image = image
+        self.bbox = bbox
+        self.dims = image.shape[:-1]
+        self.cropped = None
+        self.resized = None
+        self.cropped_bbox = None
+        self.long_size = max([self.image.shape[0], self.image.shape[1]])
+        x_diff = self.long_size - self.image.shape[1]
+        y_diff = self.long_size - self.image.shape[0]
+        self.cropped_bbox_source = [
+            self.bbox[0] - x_diff // 2,
+            self.bbox[1] - y_diff // 2,
+            self.bbox[2] + x_diff // 2,
+            self.bbox[3] + y_diff // 2,
+        ]
+
+    def square_and_crop(self):
+        # Build a square of average image color
+        self.cropped = np.ones((self.long_size, self.long_size, 3)) * np.mean(self.image, axis=(0, 1))
+
+        # Insert the face into the middle of it, so you
+        # now have a border of average image color
+        start1, end1 = get_ends(self.long_size, self.image.shape[0])
+        start2, end2 = get_ends(self.long_size, self.image.shape[1])
+
+        self.cropped[start1:end1, start2:end2, :] = self.image
+        self.resized = resize(self.cropped, (IMG_SIZE, IMG_SIZE))
+        self.cropped_bbox = (start1, end1, start2, end2)
+
+
+class FaceImage(object):
+    def __init__(self, image_path, image):
+        self.image_path = image_path
+        self.image = image
+        self.original = self.image.copy()
+        self.cloaked = None
+        self.faces = None
+
+    def find_faces(self, aligner):
+        self.faces = []
+        # returns cropped version and returns bounding box
+        align_img = align(self.image, aligner)
+        if align_img is None:
+            print("Find 0 face(s) in {}".format(p.split("/")[-1]))
+        else:
+            for content, bbox in zip(align_img[0], align_img[1]):
+                face = Face(content, bbox)
+                self.faces.append(face)
+    
+    def build_cropped_faces(self):
+        for face in self.faces:
+            face.square_and_crop()
+    
+    def build_filename(self, suffix, format='jpeg'):
+        return "{}_{}.{}".format(".".join(self.image_path.split(".")[:-1]), suffix, format)
+
+    def save(self, format='jpeg', cloaked=True, visual_debug=False):
+        cloaked_fn = self.build_filename('cloaked', format)
+        dump_image(self.cloaked, cloaked_fn, format=format)
+
+        if not visual_debug:
+            return
+
+        debug_fn = self.build_filename('debug')
+        debug_image = Image.fromarray(self.cloaked.astype(np.uint8))
+        draw = ImageDraw.Draw(debug_image)
+        for i, face in enumerate(self.faces):
+            draw.rectangle((
+                (face.cropped_bbox_source[0], face.cropped_bbox_source[1]), 
+                (face.cropped_bbox_source[2], face.cropped_bbox_source[3])
+            ), outline="green", width=2)
+
+            draw.rectangle((
+                (face.bbox[0], face.bbox[1]), 
+                (face.bbox[2], face.bbox[3])
+            ), outline="red", width=2)
+
+            filename = self.build_filename(f'debug_face_{i}_cropped')
+            Image.fromarray(face.cropped.astype(np.uint8)).save(filename, 'jpeg')
+
+            filename = self.build_filename(f'debug_face_{i}_original')
+            Image.fromarray(face.original.astype(np.uint8)).save(filename, 'jpeg')
+
+            filename = self.build_filename(f'debug_face_{i}_protected')
+            Image.fromarray(face.protected.astype(np.uint8)).save(filename, 'jpeg')
+
+        debug_image.save(debug_fn, format)
+
+    def apply_cloak(self, cur_protected, cur_original):
+        self.cloaked = self.image.copy()
+        for face in self.faces:
+            org_shape = face.dims
+
+            old_square_shape = max([org_shape[0], org_shape[1]])
+            cur_protected = resize(cur_protected, (old_square_shape, old_square_shape))
+            cur_original = resize(cur_original, (old_square_shape, old_square_shape))
+
+            face.protected = cur_protected
+            face.original = cur_original
+            start1, end1, start2, end2 = face.cropped_bbox
+
+            reshape_cloak = cur_protected - cur_original
+            reshape_cloak = reshape_cloak[start1:end1, start2:end2, :]
+
+            bb = face.bbox
+            #print("beep boop")
+            self.cloaked[bb[1]:bb[3], bb[0]:bb[2], :] += reshape_cloak
+        self.cloaked = np.clip(self.cloaked, 0.0, 255.0)
+
+        return self.cloaked
+            
 class Faces(object):
     def __init__(self, image_paths, loaded_images, aligner, verbose=1, eval_local=False, preprocessing=True,
                  no_align=False):
@@ -133,111 +246,48 @@ class Faces(object):
         self.verbose = verbose
         self.no_align = no_align
         self.aligner = aligner
-        self.org_faces = []
         self.cropped_faces = []
-        self.cropped_faces_shape = []
-        self.cropped_index = []
-        self.start_end_ls = []
-        self.callback_idx = []
         self.images_without_face = []
-        for i in range(0, len(loaded_images)):
-            cur_img = loaded_images[i]
-            p = image_paths[i]
-            self.org_faces.append(cur_img)
+        self.face_images = []
 
-            if eval_local:
-                margin = 0
-            else:
-                margin = 0.7
+        for i in range(0, len(loaded_images)):
+            face_image = FaceImage(image_paths[i], loaded_images[i])
+            self.face_images.append(face_image)
 
             if not no_align:
-                align_img = align(cur_img, self.aligner, margin=margin)
-                if align_img is None:
-                    print("Find 0 face(s) in {}".format(p.split("/")[-1]))
-                    self.images_without_face.append(i)
-                    continue
+                face_image.find_faces(aligner=self.aligner)
 
-                cur_faces = align_img[0]
-            else:
-                cur_faces = [cur_img]
+            face_image.build_cropped_faces()
 
-            cur_faces = [face for face in cur_faces if face.shape[0] != 0 and face.shape[1] != 0]
-            cur_shapes = [f.shape[:-1] for f in cur_faces]
-
-            cur_faces_square = []
-            if verbose and not no_align:
-                print("Find {} face(s) in {}".format(len(cur_faces), p.split("/")[-1]))
-            if eval_local:
-                cur_faces = cur_faces[:1]
-
-            for img in cur_faces:
-                if eval_local:
-                    base = resize(img, (IMG_SIZE, IMG_SIZE))
-                else:
-                    long_size = max([img.shape[1], img.shape[0]])
-                    base = np.ones((long_size, long_size, 3)) * np.mean(img, axis=(0, 1))
-
-                    start1, end1 = get_ends(long_size, img.shape[0])
-                    start2, end2 = get_ends(long_size, img.shape[1])
-
-                    base[start1:end1, start2:end2, :] = img
-                    cur_start_end = (start1, end1, start2, end2)
-                    self.start_end_ls.append(cur_start_end)
-
-                cur_faces_square.append(base)
-            cur_faces_square = [resize(f, (IMG_SIZE, IMG_SIZE)) for f in cur_faces_square]
-            self.cropped_faces.extend(cur_faces_square)
-
-            if not self.no_align:
-                cur_index = align_img[1]
-
-                self.cropped_faces_shape.extend(cur_shapes)
-                self.cropped_index.extend(cur_index)
-                self.callback_idx.extend([i] * len(cur_faces_square))
-
-        if len(self.cropped_faces) == 0:
+        if len(self.face_images) == 0:
             return
+
+        self.cropped_faces = []
+        for face in self.all_faces():
+            self.cropped_faces.append(face.resized)
 
         self.cropped_faces = np.array(self.cropped_faces)
 
         if preprocessing:
             self.cropped_faces = preprocess(self.cropped_faces, PREPROCESS)
 
-        self.cloaked_cropped_faces = None
-        self.cloaked_faces = np.copy(self.org_faces)
-
-    def get_faces(self):
-        return self.cropped_faces
+    def all_faces(self):
+        return [face for image in self.face_images for face in image.faces]
 
     def merge_faces(self, protected_images, original_images):
         if self.no_align:
             return np.clip(protected_images, 0.0, 255.0), self.images_without_face
 
-        self.cloaked_faces = np.copy(self.org_faces)
+        for i, face_image in enumerate(self.face_images):
+            face_image.apply_cloak(protected_images[i], original_images[i])
 
-        for i in range(len(self.cropped_faces)):
-            cur_protected = protected_images[i]
-            cur_original = original_images[i]
+        self.cloaked_faces = [i.cloaked for i in self.face_images]
 
-            org_shape = self.cropped_faces_shape[i]
-
-            old_square_shape = max([org_shape[0], org_shape[1]])
-            cur_protected = resize(cur_protected, (old_square_shape, old_square_shape))
-            cur_original = resize(cur_original, (old_square_shape, old_square_shape))
-
-            start1, end1, start2, end2 = self.start_end_ls[i]
-
-            reshape_cloak = cur_protected - cur_original
-            reshape_cloak = reshape_cloak[start1:end1, start2:end2, :]
-
-            callback_id = self.callback_idx[i]
-            bb = self.cropped_index[i]
-            #print("beep boop")
-            self.cloaked_faces[callback_id][bb[0]:bb[2], bb[1]:bb[3], :] += reshape_cloak
-
-        for i in range(0, len(self.cloaked_faces)):
-            self.cloaked_faces[i] = np.clip(self.cloaked_faces[i], 0.0, 255.0)
         return self.cloaked_faces, self.images_without_face
+
+    def save_images(self, format='jpeg', cloaked=True, visual_debug=False):
+        for image in self.face_images:
+            image.save(format, cloaked, visual_debug)
 
 
 def get_ends(longsize, window):
@@ -266,7 +316,6 @@ def load_victim_model(number_classes, teacher_model=None, end2end=False):
 
 
 def resize(img, sz):
-    assert np.min(img) >= 0 and np.max(img) <= 255.0
     from keras.preprocessing import image
     im_data = image.array_to_img(img).resize((sz[1], sz[0]))
     im_data = image.img_to_array(im_data)

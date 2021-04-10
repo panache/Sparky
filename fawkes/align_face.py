@@ -11,11 +11,8 @@ def to_rgb(img):
 def aligner():
     return MTCNN()
 
-def align(orig_img, aligner, margin=0.8, detect_multiple_faces=True):
+def align(orig_img, aligner, detect_multiple_faces=True):
     """ run MTCNN face detector """
-    minsize = 20  # minimum size of face
-    threshold = [0.6, 0.7, 0.7]  # three steps's threshold
-    factor = 0.709  # scale factor
 
     if orig_img.ndim < 2:
         return None
@@ -31,7 +28,6 @@ def align(orig_img, aligner, margin=0.8, detect_multiple_faces=True):
         det_arr = []
         img_size = np.asarray(orig_img.shape)[0:2]
         if nrof_faces > 1:
-            margin = margin / 1.5
             if detect_multiple_faces:
                 for i in range(nrof_faces):
                     det_arr.append(np.squeeze(bounding_boxes[i]['box']))
@@ -50,16 +46,17 @@ def align(orig_img, aligner, margin=0.8, detect_multiple_faces=True):
         bounding_boxes_arr = []
         for i, det in enumerate(det_arr):
             det = np.squeeze(det)
-            bb = np.zeros(4, dtype=np.int32)
-            # add in margin
-            marg1 = int((det[2] - det[0]) * margin)
-            marg2 = int((det[3] - det[1]) * margin)
 
-            bb[0] = max(det[0] - marg1/2, 0)
-            bb[1] = max(det[1] - marg2/2, 0)
-            bb[2] = min(det[0] + det[2] + marg1/2, img_size[0])
-            bb[3] = min(det[1] + det[3] + marg2/2, img_size[1])
-            cropped = orig_img[bb[0]:bb[2], bb[1]: bb[3],:]
+            x, y, width, height = det
+
+            bb = np.zeros(4, dtype=np.int32)
+
+            bb[0] = x
+            bb[1] = y
+            bb[2] = x + width
+            bb[3] = y + height
+
+            cropped = orig_img[bb[1]:bb[3], bb[0]:bb[2],:]
             cropped_arr.append(cropped)
             bounding_boxes_arr.append([bb[0], bb[1], bb[2], bb[3]])
         return cropped_arr, bounding_boxes_arr

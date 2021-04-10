@@ -29,6 +29,7 @@ Options:
 * `--batch-size`       : number of images to run optimization together. Change to >1 only if you have extremely powerful
   compute power.
 * `--format`      : format of the output image (png or jpg).
+* `--visual-debug`       : export additional files to visualize the face cloaking process
 
 ### Example
 
