@@ -133,13 +133,6 @@ class Fawkes(object):
             reverse_process_cloaked(original_images, preprocess=PREPROCESS))
 
         faces.save_images(format=format, cloaked=True, visual_debug=visual_debug)
-        # for i in range(len(final_images)):
-        #     if i in images_without_face:
-        #         continue
-        #     p_img = final_images[i]
-        #     path = image_paths[i]
-        #     file_name = "{}_cloaked.{}".format(".".join(path.split(".")[:-1]), format)
-        #     dump_image(p_img, file_name, format=format)
 
         print("Done!")
         return 1
