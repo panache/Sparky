@@ -8,6 +8,10 @@ keras/datasets/temp/*
 tags
 fawkes.egg-info
 *.h5
+*.tflite
+.ipynb_checkpoints
+*_cloaked*
+*_debug*
 
 # test-related
 .coverage

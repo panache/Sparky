@@ -478,7 +478,11 @@ def build_bottleneck_model(model, cut_off):
 
 def load_extractor_by_path(path):
     print("Loading manual feature extractor from", path)
-    model = keras.models.load_model(path)
+    if path.endswith(".h5"):
+        model = keras.models.load_model(path)
+    else:
+        model = tf.lite.Interpreter(path)
+
     model = Extractor(model)
     return model
 
@@ -502,9 +506,25 @@ class Extractor(object):
     def __init__(self, model):
         self.model = model
 
+        if isinstance(self.model, tf.lite.Interpreter):
+            self.model_type = 'tflite'
+            self.model.allocate_tensors()
+            self.input_details = model.get_input_details()
+            self.output_details = model.get_output_details()
+        else:
+            self.model_type = 'keras'
+
     def predict(self, imgs):
         imgs = imgs / 255.0
-        embeds = l2_norm(self.model(imgs))
+        if self.model_type == 'keras':
+            embeds = l2_norm(self.model(imgs))
+        elif self.model_type == 'tflite':
+            self.model.set_tensor(self.input_details[0]['index'], imgs)
+            self.model.invoke()
+            embeds = l2_norm(self.model.get_tensor(output_details[0]['index']))
+        else:
+            assert False
+
         return embeds
 
     def __call__(self, x):
