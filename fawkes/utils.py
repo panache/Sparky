@@ -476,6 +476,12 @@ def build_bottleneck_model(model, cut_off):
     return bottleneck_model
 
 
+def load_extractor_by_path(path):
+    print("Loading manual feature extractor from", path)
+    model = keras.models.load_model(path)
+    model = Extractor(model)
+    return model
+
 def load_extractor(name):
     hash_map = {"extractor_2": "ce703d481db2b83513bbdafa27434703",
                 "extractor_0": "94854151fd9077997d69ceda107f9c6b"}

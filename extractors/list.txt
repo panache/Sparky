@@ -1,0 +1,4 @@
+Too big for GitHub, but you can find them at the following URLs:
+
+http://mirror.cs.uchicago.edu/fawkes/files/extractor_2.h5
+http://mirror.cs.uchicago.edu/fawkes/files/extractor_0.h5

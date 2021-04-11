@@ -31,6 +31,8 @@ Options:
 * `--format`      : format of the output image (png or jpg).
 * `--visual-debug`       : export additional files to visualize the face cloaking process
 * `--margin`       : margin in floating-point percent to expand face area. negative number for a smaller bounding box. (default `0.1`)
+* `--feature-extractor-path`       : load a feature extractor from a given path. Look in the `extractors` folder for where to download them from. *note: learning rate, max step, etc are still related to the mode*
+
 ### Example
 
 `fawkes -d ./imgs --mode low`

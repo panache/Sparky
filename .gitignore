@@ -7,6 +7,7 @@ keras/datasets/data/*
 keras/datasets/temp/*
 tags
 fawkes.egg-info
+*.h5
 
 # test-related
 .coverage
@@ -14,7 +15,7 @@ fawkes.egg-info
 .pytest_cache
 fawkes_dev/api_key.txt
 fawkes_dev/protect_personId.txt
-
+*_debug.jpeg
 # developer environments
 .idea
 .vscode

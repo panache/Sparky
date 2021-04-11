@@ -21,7 +21,7 @@ tf.autograph.set_verbosity(3)
 import numpy as np
 from differentiator import FawkesMaskGeneration
 from utils import init_gpu, dump_image, reverse_process_cloaked, \
-    Faces, filter_image_paths, load_extractor
+    Faces, filter_image_paths, load_extractor, load_extractor_by_path
 
 from align_face import aligner
 
@@ -36,7 +36,7 @@ PREPROCESS = 'raw'
 
 
 class Fawkes(object):
-    def __init__(self, feature_extractor, gpu, batch_size, mode="low"):
+    def __init__(self, feature_extractor, gpu, batch_size, mode="low", feature_extractor_path=None):
 
         self.feature_extractor = feature_extractor
         self.gpu = gpu
@@ -57,7 +57,10 @@ class Fawkes(object):
 
         self.protector = None
         self.protector_param = None
-        self.feature_extractors_ls = [load_extractor(name) for name in extractors]
+        if feature_extractor_path:
+            self.feature_extractors_ls = [load_extractor_by_path(feature_extractor_path)]
+        else:
+            self.feature_extractors_ls = [load_extractor(name) for name in extractors]
 
     def mode2param(self, mode):
         if mode == 'low':
@@ -160,6 +163,9 @@ def main(*argv):
     parser.add_argument('--feature-extractor', type=str,
                         help="name of the feature extractor used for optimization",
                         default="arcface_extractor_0")
+    parser.add_argument('--feature-extractor-path', type=str,
+                        help="path to feature extractor used for optimization",
+                        default=None)
     parser.add_argument('--th', help='only relevant with mode=custom, DSSIM threshold for perturbation', type=float,
                         default=0.01)
     parser.add_argument('--max-step', help='only relevant with mode=custom, number of steps for optimization', type=int,
@@ -192,7 +198,8 @@ def main(*argv):
     image_paths = glob.glob(os.path.join(args.directory, "*"))
     image_paths = [path for path in image_paths if "_cloaked" not in path.split("/")[-1] and "_debug" not in path.split("/")[-1]]
 
-    protector = Fawkes(args.feature_extractor, args.gpu, args.batch_size, mode=args.mode)
+    protector = Fawkes(args.feature_extractor, args.gpu, args.batch_size,
+                        mode=args.mode, feature_extractor_path=args.feature_extractor_path)
 
     protector.run_protection(image_paths, th=args.th, sd=args.sd, lr=args.lr,
                              max_step=args.max_step,

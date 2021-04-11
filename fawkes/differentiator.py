@@ -121,6 +121,7 @@ class FawkesMaskGeneration:
         cur_aimg_input = self.resize_tensor(source_raw, model_input_shape)
         if target_raw is not None:
             cur_timg_input = self.resize_tensor(target_raw, model_input_shape)
+
         for bottleneck_model in self.bottleneck_models:
             if tape is not None:
                 try:
